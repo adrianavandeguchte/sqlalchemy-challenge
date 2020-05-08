@@ -38,8 +38,9 @@ def home():
         f"/api/v1.0/precipitation</br>"
         f"/api/v1.0/stations</br>"
         f"/api/v1.0/tobs</br>"
-        f"/api/v1.0/<start></br>"
-        f"/api/v1.0/<start>/<end></br>"
+        f"/api/v1.0/start date</br>"
+        f"/api/v1.0/start date/end date</br>"
+        f"Please format all start and end dates Y-M-D"
     )
 
 
@@ -50,8 +51,8 @@ def precipitation():
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
-    """Return a list of all passenger names"""
-    # Query all passengers
+    """Return a list of all precipitation records per date """
+    # Query all dates and precipitation records
     results = session.query(Measurement.date,Measurement.prcp).all()
 
     session.close()
@@ -69,14 +70,14 @@ def stations():
     print("Server received request for 'Station' page...")
     session = Session(engine)
 
-    """Return a list of all passenger names"""
-    # Query all passengers
+    """Return a list of all station names"""
+    # Query all station names
     results = session.query(Station.name).all()
 
 
     session.close()
 
-    # Convert list of tuples into normal list
+    # Convert into normal list
     all_names = list(np.ravel(results))
 
     return jsonify(all_names)
@@ -87,7 +88,7 @@ def tobs():
     session = Session(engine)
 
     """Return a list of all temperatures for past year for the most active station"""
-    # Query all passengers
+    # Query all temperatures within past year for selected station
     last_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
     year_ago = dt.datetime.strptime(last_date[0],"%Y-%m-%d") - dt.timedelta(days=365)
     one_station_results = session.query(Measurement.date,Measurement.tobs).\
@@ -99,19 +100,49 @@ def tobs():
     session.close()
 
     # Convert list of tuples into normal list
-    all_names = list(np.ravel(one_station_results))
+    results = list(np.ravel(one_station_results))
 
-    return jsonify(all_names)
+    return jsonify(results)
 # only start date provided
 @app.route("/api/v1.0/<start>")
-def start():
-    print("Server received request for 'About' page...")
-    return "Welcome to my 'About' page!"
+def start(start):
+    print("Server received request for 'start' page...")
+    session = Session(engine)
+
+    """Return min, average, and max temps from start date"""
+    # Query min, average, and max temps from start date
+    query_result = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+    filter(Measurement.date > start).all()
+
+
+    session.close()
+
+    # Convert list of tuples into normal list
+    results = list(np.ravel(query_result))
+
+    return jsonify(results)
+
+
+
+
 # start and end date provided
 @app.route("/api/v1.0/<start>/<end>")
-def startend():
+def startend(start,end):
     print("Server received request for 'About' page...")
-    return "Welcome to my 'About' page!"
+    session = Session(engine)
+
+    """Return min, average, and max temps between start and end dates"""
+    # Query min, average, and max temps from start date to end date
+    query_result = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+    filter(Measurement.date > start).filter(Measurement.date < end).all()
+
+
+    session.close()
+
+    # Convert list of tuples into normal list
+    results = list(np.ravel(query_result))
+
+    return jsonify(results)
 
 
 
