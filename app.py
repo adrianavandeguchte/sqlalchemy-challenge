@@ -1,9 +1,12 @@
 import numpy as np
 
+import datetime as dt
+
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
+from collections import defaultdict
 
 from flask import Flask, jsonify
 
@@ -20,6 +23,7 @@ Base.prepare(engine,reflect=True)
 
 # Save reference to the table
 Measurement = Base.classes.measurement
+Station = Base.classes.station
 # 2. Create an app, being sure to pass __name__
 app = Flask(__name__)
 
@@ -38,13 +42,11 @@ def home():
         f"/api/v1.0/<start>/<end></br>"
     )
 
-# precipitation information requested
-Convert the query results to a dictionary using date as the key and prcp as the value.
 
-Return the JSON representation of your dictionary.
+# Return the JSON representation of your precipitation dictionary.
 @app.route("/api/v1.0/precipitation")
-def about():
-    print("Server received request for 'precipitation' page...")
+def precipitation():
+    print("Server received request for 'Precipitation' page...")
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
@@ -54,29 +56,60 @@ def about():
 
     session.close()
 
-    # Convert list of tuples into normal list
-    prcp_dict = dict(np.ravel(results))
+    # Convert list of tuples into dictionary with date as key to precipitation values
+    prcp_dict = defaultdict(list)
+    for i,j in results:
+        prcp_dict[i].append(j)
 
     return jsonify(prcp_dict)
 
 # station information requested
 @app.route("/api/v1.0/stations")
-def about():
-    print("Server received request for 'About' page...")
-    return "Welcome to my 'About' page!"
+def stations():
+    print("Server received request for 'Station' page...")
+    session = Session(engine)
+
+    """Return a list of all passenger names"""
+    # Query all passengers
+    results = session.query(Station.name).all()
+
+
+    session.close()
+
+    # Convert list of tuples into normal list
+    all_names = list(np.ravel(results))
+
+    return jsonify(all_names)
 # temperature information requested
 @app.route("/api/v1.0/tobs")
-def about():
-    print("Server received request for 'About' page...")
-    return "Welcome to my 'About' page!"
+def tobs():
+    print("Server received request for 'tobs' page...")
+    session = Session(engine)
+
+    """Return a list of all temperatures for past year for the most active station"""
+    # Query all passengers
+    last_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+    year_ago = dt.datetime.strptime(last_date[0],"%Y-%m-%d") - dt.timedelta(days=365)
+    one_station_results = session.query(Measurement.date,Measurement.tobs).\
+    group_by(Measurement.date).\
+    filter(Measurement.date > year_ago).\
+    filter_by(station = 'USC00519281').\
+    order_by(Measurement.date).all()
+
+    session.close()
+
+    # Convert list of tuples into normal list
+    all_names = list(np.ravel(one_station_results))
+
+    return jsonify(all_names)
 # only start date provided
 @app.route("/api/v1.0/<start>")
-def about():
+def start():
     print("Server received request for 'About' page...")
     return "Welcome to my 'About' page!"
 # start and end date provided
 @app.route("/api/v1.0/<start>/<end>")
-def about():
+def startend():
     print("Server received request for 'About' page...")
     return "Welcome to my 'About' page!"
 
